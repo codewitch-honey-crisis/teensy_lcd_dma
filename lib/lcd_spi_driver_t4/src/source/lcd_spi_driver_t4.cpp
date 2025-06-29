@@ -240,21 +240,17 @@ void lcd_spi_driver_t4::begin(void) {
 	}
 
 	if (_pspi && _pspi->pinIsChipSelect(_rs)) {
-	 	uint32_t dc_cs_index = _pspi->setCS(_rs);
+	 	_pspi->setCS(_rs);
 	 	_dcport = 0;
 	 	_dcpinmask = 0;
-        --dc_cs_index;
-        _tcr_dc_assert = LPSPI_TCR_PCS(dc_cs_index);
-    	_tcr_dc_not_assert = LPSPI_TCR_PCS(3);
 	} else {
+		//Serial.println("SSD1351_t3: Error not DC is not valid hardware CS pin");
 		_dcport = portOutputRegister(_rs);
 		_dcpinmask = digitalPinToBitMask(_rs);
 		pinMode(_rs, OUTPUT);	
 		DIRECT_WRITE_HIGH(_dcport, _dcpinmask);
-        _tcr_dc_assert = LPSPI_TCR_PCS(0);
-    	_tcr_dc_not_assert = LPSPI_TCR_PCS(1);
 	}
-	maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(7));
+	maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7));
     if (_rst != 0xff) {
 		pinMode(_rst, OUTPUT);
 		digitalWrite(_rst, HIGH);
@@ -270,7 +266,7 @@ void lcd_spi_driver_t4::on_flush_complete_callback(lcd_spi_on_flush_complete_cal
     this->_on_transfer_complete = callback;
     _on_transfer_complete_state = state;
 }
-bool lcd_spi_driver_t4::flush_async(int x1, int y1, int x2, int y2, const void* bitmap) {
+bool lcd_spi_driver_t4::flush_async(int x1, int y1, int x2, int y2, const void* bitmap, bool flush_cache) {
     // Don't start one if already active.
     if (_dma_state & LCD_SPI_DMA_ACTIVE) {
         Serial.println("DMA IN PROGRESS");
@@ -280,6 +276,9 @@ bool lcd_spi_driver_t4::flush_async(int x1, int y1, int x2, int y2, const void* 
     int w = x2-x1+1;
     int h = y2-y1+1;
     _count_words = w*h;
+    if(flush_cache) {
+        arm_dcache_flush((void*)_buffer,_count_words*2);
+    }
     _dma_pixel_index = 0;
     if(!init_dma_settings()) {
         size_t cb = _dma_buffer_size * 2;
@@ -300,7 +299,7 @@ bool lcd_spi_driver_t4::flush_async(int x1, int y1, int x2, int y2, const void* 
     // Update TCR to 16 bit mode. and output the first entry.
     _spi_fcr_save = _pimxrt_spi->FCR;  // remember the FCR
     _pimxrt_spi->FCR = 0;              // clear water marks...
-    maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_RXMSK /*| LPSPI_TCR_CONT*/);
+    maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_RXMSK /*| LPSPI_TCR_CONT*/);
     _pimxrt_spi->DER = LPSPI_DER_TDDE;
     _pimxrt_spi->SR = 0x3f00;  // clear out all of the other status...
     _dma_data[_spi_num]._dmatx.triggerAtHardwareEvent(_spi_hardware->tx_dma_channel);

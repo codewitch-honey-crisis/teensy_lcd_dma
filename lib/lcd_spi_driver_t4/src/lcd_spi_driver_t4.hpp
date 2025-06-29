@@ -53,8 +53,7 @@ class lcd_spi_driver_t4 {
     uint32_t _sckpinmask;
     volatile uint32_t *_sckport;
     uint8_t _rotation;
-    uint32_t _tcr_dc_assert;
-    uint32_t _tcr_dc_not_assert;
+    uint32_t ctar;
     static lcd_spi_driver_t4 *_dmaActiveDisplay[3];  // Use pointer to this as a way to get back to object...
     static lcd_spi_dma_data_t _dma_data[3];          // one structure for each SPI bus...
     // try work around DMA memory cached.  So have a couple of buffers we copy frame buffer into
@@ -86,10 +85,7 @@ class lcd_spi_driver_t4 {
 
    protected:
     inline void begin_transaction(void) __attribute__((always_inline)) {
-        if (hwSPI) {
-            _pspi->beginTransaction(_spiSettings);
-            _spi_tcr_current = IMXRT_LPSPI4_S.TCR; 
-        }
+        if (hwSPI) _pspi->beginTransaction(_spiSettings);
         if (_csport) DIRECT_WRITE_LOW(_csport, _cspinmask);
     }
     inline void end_transaction(void) __attribute__((always_inline)) {
@@ -98,7 +94,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_command(uint8_t cmd) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(_tcr_dc_assert | LPSPI_TCR_FRAMESZ(7));
+            maybe_update_tcr(LPSPI_TCR_PCS(0) | LPSPI_TCR_FRAMESZ(7));
             _pimxrt_spi->TDR = cmd;
             _pending_rx_count++;  //
             wait_fifo_not_full();
@@ -109,7 +105,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_command_last(uint8_t cmd) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(_tcr_dc_assert | LPSPI_TCR_FRAMESZ(7));
+            maybe_update_tcr(LPSPI_TCR_PCS(0) | LPSPI_TCR_FRAMESZ(7));
             _pimxrt_spi->TDR = cmd;
             _pending_rx_count++;  //
             wait_transmit_complete();
@@ -120,7 +116,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_data(uint8_t data) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(7));
+            maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7));
             _pimxrt_spi->TDR = data;
             _pending_rx_count++;  //
             wait_fifo_not_full();
@@ -131,7 +127,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_data_last(uint8_t data) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(7));
+            maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7));
             _pimxrt_spi->TDR = data;
             _pending_rx_count++;  //
             wait_transmit_complete();
@@ -142,10 +138,9 @@ class lcd_spi_driver_t4 {
     }
     inline void write_data16(uint16_t data) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_CONT);
+            maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_CONT);
             _pimxrt_spi->TDR = data;
-            _pending_rx_count++;
-            _pending_rx_count++;
+            _pending_rx_count++;  //
             wait_fifo_not_full();
         } else {
             DIRECT_WRITE_HIGH(_dcport, _dcpinmask);
@@ -154,10 +149,9 @@ class lcd_spi_driver_t4 {
     }
     inline void write_data16_last(uint16_t data) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(15));
+            maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(15));
             _pimxrt_spi->TDR = data;
-            _pending_rx_count++;
-            _pending_rx_count++;
+            _pending_rx_count++;  //
             wait_transmit_complete();
         } else {
             DIRECT_WRITE_HIGH(_dcport, _dcpinmask);
@@ -172,9 +166,27 @@ class lcd_spi_driver_t4 {
     virtual void set_rotation(int rotation) = 0;
 
    public:
+    /// @brief Initializes the driver
     void begin(void);
+    /// @brief Sets the rotation of the display
+    /// @param value The number of 90 degree increments from default 0-3
     void rotation(int value);
     void on_flush_complete_callback(lcd_spi_on_flush_complete_callback_t callback, void *state = nullptr);
-    bool flush_async(int x1, int y1, int x2, int y2, const void *bitmap);
+    /// @brief Flushes a bitmap asynchronously using DMA
+    /// @param x1 The starting x coordinate
+    /// @param y1 The starting y coordinate
+    /// @param x2 The ending x coordinate
+    /// @param y2 The ending y coordinate
+    /// @param bitmap The bitmap
+    /// @param flush_cache True to flush the memory cache, otherwise false. See remarks.
+    /// @return True if successful, false if a flush is already in progress
+    /// @remarks bitmap must be in DTCM memory or otherwise flush_cache must be true and the memory must be 32-bit aligned
+    bool flush_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache = false);
+    /// @brief Flushes a bitmap synchronously
+    /// @param x1 The starting x coordinate
+    /// @param y1 The starting y coordinate
+    /// @param x2 The ending x coordinate
+    /// @param y2 The ending y coordinate
+    /// @param bitmap The bitmap
     bool flush(int x1, int y1, int x2, int y2, const void *bitmap);
 };
