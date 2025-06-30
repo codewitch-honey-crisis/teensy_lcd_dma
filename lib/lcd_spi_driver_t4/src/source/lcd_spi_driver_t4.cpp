@@ -6,9 +6,11 @@ static volatile short _lcd_spi_dma_dummy_rx;
 lcd_spi_driver_t4* lcd_spi_driver_t4::_dmaActiveDisplay[3] = {0, 0, 0};
 lcd_spi_dma_data_t lcd_spi_driver_t4::_dma_data[3];   // one structure for each SPI bus
 
-lcd_spi_driver_t4::lcd_spi_driver_t4(uint32_t frequency,uint8_t cs, uint8_t rs, uint8_t sid, uint8_t sclk, uint8_t rst) : hwSPI(false),
+lcd_spi_driver_t4::lcd_spi_driver_t4(uint8_t color_width, bool swap_color_bytes, uint32_t frequency,uint8_t cs, uint8_t rs, uint8_t sid, uint8_t sclk, uint8_t rst) : hwSPI(false),
 	_cs(cs), _rs(rs),  _rst(rst), _sid(sid), _sclk(sclk)
 {
+    _color_width = color_width;
+    _color_swap_bytes = swap_color_bytes;
     _freq = frequency;
     _rotation = 0;
     _on_transfer_complete=nullptr;
@@ -20,9 +22,11 @@ lcd_spi_driver_t4::lcd_spi_driver_t4(uint32_t frequency,uint8_t cs, uint8_t rs, 
 
 // Constructor when using hardware SPI.  Faster, but must use SPI pins
 // specific to each board type (e.g. 11,13 for Uno, 51,52 for Mega, etc.)
-lcd_spi_driver_t4::lcd_spi_driver_t4(uint32_t frequency, uint8_t cs, uint8_t rs, uint8_t rst) :
+lcd_spi_driver_t4::lcd_spi_driver_t4(uint8_t color_width, bool swap_color_bytes, uint32_t frequency, uint8_t cs, uint8_t rs, uint8_t rst) :
 	 hwSPI(true), _cs(cs), _rs(rs),  _rst(rst), _sid((uint8_t)-1), _sclk((uint8_t)-1)
 {
+    _color_width = color_width;
+    _color_swap_bytes = swap_color_bytes;
     _freq = frequency;
     _rotation=0;
     _on_transfer_complete=nullptr;
@@ -59,7 +63,7 @@ void lcd_spi_driver_t4::process_dma_interrupt(void) {
 
 			_dma_data[_spi_num]._dmatx.clearComplete();
 			//Serial.println("Restore FCR");
-			_pimxrt_spi->FCR = LPSPI_FCR_TXWATER(15); // _spi_fcr_save;	// restore the FSR status... 
+			_pimxrt_spi->FCR = _spi_fcr_save; // LPSPI_FCR_TXWATER(15); // _spi_fcr_save;	// restore the FSR status... 
 	 		_pimxrt_spi->DER = 0;		// DMA no longer doing TX (or RX)
 
 			_pimxrt_spi->CR = LPSPI_CR_MEN | LPSPI_CR_RRF | LPSPI_CR_RTF;   // actually clear both...
@@ -88,9 +92,13 @@ bool lcd_spi_driver_t4::init_dma_settings(void) {
         return false;        // we already init this.
     }
     uint8_t dmaTXevent = _spi_hardware->tx_dma_channel;
-    _dma_data[_spi_num]._dmasettings[0].sourceBuffer(_buffer, _count_words*2);
+    if(_color_swap_bytes==true && _color_width==2) {
+        _dma_data[_spi_num]._dmasettings[0].sourceBuffer((uint16_t*)_buffer,_count_words*_color_width);
+    } else {
+        _dma_data[_spi_num]._dmasettings[0].sourceBuffer((uint8_t*)_buffer,_count_words*_color_width);
+    }
     _dma_data[_spi_num]._dmasettings[0].destination(_pimxrt_spi->TDR);
-    _dma_data[_spi_num]._dmasettings[0].TCD->ATTR_DST = 1;
+    _dma_data[_spi_num]._dmasettings[0].TCD->ATTR_DST = (_color_swap_bytes&&_color_width==2)?1:0;
     _dma_data[_spi_num]._dmasettings[0].replaceSettingsOnCompletion(_dma_data[_spi_num]._dmasettings[1]);
     _dma_data[_spi_num]._dmasettings[0].interruptAtCompletion();
 
@@ -266,7 +274,7 @@ void lcd_spi_driver_t4::on_flush_complete_callback(lcd_spi_on_flush_complete_cal
     this->_on_transfer_complete = callback;
     _on_transfer_complete_state = state;
 }
-bool lcd_spi_driver_t4::flush_async(int x1, int y1, int x2, int y2, const void* bitmap, bool flush_cache) {
+bool lcd_spi_driver_t4::flush16_async(int x1, int y1, int x2, int y2, const void* bitmap, bool flush_cache) {
     // Don't start one if already active.
     if (_dma_state & LCD_SPI_DMA_ACTIVE) {
         Serial.println("DMA IN PROGRESS");
@@ -276,24 +284,17 @@ bool lcd_spi_driver_t4::flush_async(int x1, int y1, int x2, int y2, const void* 
     int w = x2-x1+1;
     int h = y2-y1+1;
     _count_words = w*h;
-    _dma_pixel_index = 0;
+    size_t bytes = _count_words * 2;
     if(flush_cache) {
-        arm_dcache_flush((void*)_buffer,_count_words*2);
+        arm_dcache_flush((void*)bitmap,bytes);
     }
     if(!init_dma_settings()) {
-        size_t cb = _dma_buffer_size * 2;
-        if (cb > _count_words * 2) {
-            cb = _count_words * 2;
-        }
-        _dma_data[_spi_num]._dmasettings[0].sourceBuffer(_buffer, _count_words*2);
-        
-
+        _dma_data[_spi_num]._dmasettings[0].sourceBuffer((const uint16_t*)_buffer, bytes);
     }
     // Start off remove disable on completion from both...
     // it will be the ISR that disables it...
     _dma_data[_spi_num]._dmasettings[0].TCD->CSR &= ~(DMA_TCD_CSR_DREQ);
     _dma_data[_spi_num]._dmasettings[1].TCD->CSR &= ~(DMA_TCD_CSR_DREQ);
-
     begin_transaction();
     write_address_window(x1,y1,x2,y2);
     // Update TCR to 16 bit mode. and output the first entry.
@@ -309,13 +310,54 @@ bool lcd_spi_driver_t4::flush_async(int x1, int y1, int x2, int y2, const void* 
     _dma_data[_spi_num]._dmatx.begin(false);
     _dma_data[_spi_num]._dmatx.enable();
 
-    _dma_frame_count = 0;  // Set frame count back to zero.
     _dmaActiveDisplay[_spi_num] = this;
     _dma_state &= ~LCD_SPI_DMA_CONT;
     _dma_state |= LCD_SPI_DMA_ACTIVE;
     return true;
 }
-bool lcd_spi_driver_t4::flush(int x1, int y1, int x2, int y2, const void* bitmap) {
+bool lcd_spi_driver_t4::flush8_async(int x1, int y1, int x2, int y2, const void* bitmap, bool flush_cache) {
+     // Don't start one if already active.
+    if (_dma_state & LCD_SPI_DMA_ACTIVE) {
+        Serial.println("DMA IN PROGRESS");
+        return false;
+    }
+    _buffer = (uint16_t*)bitmap;
+    int w = x2-x1+1;
+    int h = y2-y1+1;
+    _count_words = w*h;
+    // count pixels * 2 at 16-bit color
+    size_t bytes = _count_words * _color_width;
+    if(flush_cache) {
+        arm_dcache_flush((void*)_buffer,bytes);
+    }
+    init_dma_settings();
+
+     _dma_data[_spi_num]._dmasettings[0].sourceBuffer((const uint8_t*)_buffer, bytes);
+    // Start off remove disable on completion from both...
+    // it will be the ISR that disables it...
+    _dma_data[_spi_num]._dmasettings[0].TCD->CSR &= ~(DMA_TCD_CSR_DREQ);
+    _dma_data[_spi_num]._dmasettings[1].TCD->CSR &= ~(DMA_TCD_CSR_DREQ);
+    begin_transaction();
+    write_address_window(x1,y1,x2,y2);
+    _spi_fcr_save = _pimxrt_spi->FCR;  // remember the FCR
+    _pimxrt_spi->FCR = 0;              // clear water marks...
+    // Update TCR to 8 bit mode. .
+    maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7) | LPSPI_TCR_RXMSK /*| LPSPI_TCR_CONT*/);
+    _pimxrt_spi->DER = LPSPI_DER_TDDE;
+    _pimxrt_spi->SR = 0x3f00;  // clear out all of the other status...
+    _dma_data[_spi_num]._dmatx.triggerAtHardwareEvent(_spi_hardware->tx_dma_channel);
+
+    _dma_data[_spi_num]._dmatx = _dma_data[_spi_num]._dmasettings[0];
+
+    _dma_data[_spi_num]._dmatx.begin(false);
+    _dma_data[_spi_num]._dmatx.enable();
+
+    _dmaActiveDisplay[_spi_num] = this;
+    _dma_state &= ~LCD_SPI_DMA_CONT;
+    _dma_state |= LCD_SPI_DMA_ACTIVE;
+    return true;
+}
+bool lcd_spi_driver_t4::flush16(int x1, int y1, int x2, int y2, const void* bitmap) {
     if (_dma_state & LCD_SPI_DMA_ACTIVE) {
         Serial.println("DMA IN PROGRESS");
         return false;
@@ -337,6 +379,29 @@ bool lcd_spi_driver_t4::flush(int x1, int y1, int x2, int y2, const void* bitmap
     }
     return true;
 }
+bool lcd_spi_driver_t4::flush8(int x1, int y1, int x2, int y2, const void* bitmap) {
+    if (_dma_state & LCD_SPI_DMA_ACTIVE) {
+        Serial.println("DMA IN PROGRESS");
+        return false;
+    }
+    size_t size = (x2-x1+1)*(y2-y1+1) * 2;
+    const uint16_t* p = (const uint16_t*)bitmap;
+    begin_transaction();
+    write_address_window(x1,y1,x2,y2);
+    while(size>1) {
+        write_data(*(p++));
+        --size;
+    }
+    if(size) {
+        write_data_last(*p);
+    }
+    end_transaction();
+    if(_on_transfer_complete!=nullptr) {
+        _on_transfer_complete(_on_transfer_complete_state);
+    }
+    return true;
+}
+
 void lcd_spi_driver_t4::rotation(int value) {
     _rotation = value;
     set_rotation(value);

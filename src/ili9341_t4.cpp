@@ -92,11 +92,11 @@ static const uint8_t initList[] = {
     3, 0xb1, 0x00, 0x10,                                   // FrameRate Control 119Hz
     0};
 
-ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(20 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
+ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2,true, 20 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
     _rotation = 0;
     _bkl = BKL;
 }
-ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(20 * 1000 * 1000, CS, RS, RST) {
+ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2,true,20 * 1000 * 1000, CS, RS, RST) {
     _rotation = 0;
     _bkl = BKL;
 }

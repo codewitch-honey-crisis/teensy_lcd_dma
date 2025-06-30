@@ -72,10 +72,10 @@ static const uint8_t PROGMEM initList[] = {
   SSD1351_CMD_DISPLAYON, 0, // Main screen turn on
   0 }; // END OF COMMAND LIST
 
-ssd1351_t4::ssd1351_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST) : lcd_spi_driver_t4(20*1000*1000,CS,RS,SID,SCLK,RST) {
+ssd1351_t4::ssd1351_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST) : lcd_spi_driver_t4(2,true,20*1000*1000,CS,RS,SID,SCLK,RST) {
 
 }
-ssd1351_t4::ssd1351_t4(uint8_t CS, uint8_t RS, uint8_t RST) : lcd_spi_driver_t4(20*1000*1000,CS,RS,RST) {
+ssd1351_t4::ssd1351_t4(uint8_t CS, uint8_t RS, uint8_t RST) : lcd_spi_driver_t4(2,true,20*1000*1000,CS,RS,RST) {
 
 }
 

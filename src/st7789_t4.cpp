@@ -110,14 +110,14 @@ void st7789_t4::set_dimensions(st7789_t4_res_t resolution) {
         
     }
 }
-st7789_t4::st7789_t4(st7789_t4_res_t resolution, uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(70 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
+st7789_t4::st7789_t4(st7789_t4_res_t resolution, uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2,true,70 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
     _rotation = 0;
     _offset_x = 0;
     _offset_y = 0;
     _bkl = BKL;
     set_dimensions(resolution);
 }
-st7789_t4::st7789_t4(st7789_t4_res_t resolution, uint8_t CS, uint8_t RS, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(70 * 1000 * 1000, CS, RS, RST) {
+st7789_t4::st7789_t4(st7789_t4_res_t resolution, uint8_t CS, uint8_t RS, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2,true,70 * 1000 * 1000, CS, RS, RST) {
     _rotation = 0;
     _offset_x = 0;
     _offset_y = 0;

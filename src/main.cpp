@@ -29,7 +29,7 @@ const byte CLK_PIN = 13;  // for SCK1: 27
 const byte BKL_PIN = 7;
 st7789_t4 lcd(st7789_t4_res_t::ST7789_240x320, CS_PIN, DC_PIN, RST_PIN, 7);
 // ST7789_t3 lcd( CS_PIN,DC_PIN,RST_PIN);
-static constexpr const size_t lcd_transfer_buffer_size = (SCREEN_WIDTH * (SCREEN_HEIGHT / 4) * 2);
+static constexpr const size_t lcd_transfer_buffer_size = (SCREEN_WIDTH * (SCREEN_HEIGHT / 6) * 2);
 static uint8_t* lcd_transfer_buffer1 = nullptr;  //[lcd_transfer_buffer_size];
 static uint8_t* lcd_transfer_buffer2 = nullptr;  //[lcd_transfer_buffer_size];
 static uix::display lcd_display;

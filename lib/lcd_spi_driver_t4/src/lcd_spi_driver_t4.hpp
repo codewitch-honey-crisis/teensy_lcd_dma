@@ -38,8 +38,8 @@ class lcd_spi_driver_t4 {
     uint32_t _spi_tcr_current = 0;
     SPISettings _spiSettings;
     volatile uint8_t _dma_state;         // DMA status
-    volatile uint32_t _dma_frame_count;  // Can return a frame count...
     uint32_t _count_words;
+    uint32_t _color_width;
     const uint16_t *_buffer;
     bool hwSPI;
     uint8_t _cs, _rs, _rst, _sid, _sclk;
@@ -53,15 +53,11 @@ class lcd_spi_driver_t4 {
     uint32_t _sckpinmask;
     volatile uint32_t *_sckport;
     uint8_t _rotation;
-    uint32_t ctar;
+    bool _color_swap_bytes;
     static lcd_spi_driver_t4 *_dmaActiveDisplay[3];  // Use pointer to this as a way to get back to object...
     static lcd_spi_dma_data_t _dma_data[3];          // one structure for each SPI bus...
     // try work around DMA memory cached.  So have a couple of buffers we copy frame buffer into
     // as to move it out of the memory that is cached...
-    volatile uint32_t _dma_pixel_index = 0;
-    volatile uint16_t _dma_sub_frame_count = 0;  // Can return a frame count...
-    uint16_t _dma_buffer_size;                   // the actual size we are using <= DMA_BUFFER_SIZE;
-    uint16_t _dma_cnt_sub_frames_per_frame;
     uint32_t _spi_fcr_save;  // save away previous FCR register value
     lcd_spi_on_flush_complete_callback_t _on_transfer_complete = nullptr;
     void *_on_transfer_complete_state = nullptr;
@@ -82,7 +78,10 @@ class lcd_spi_driver_t4 {
     static void dma_interrupt2(void);
     bool init_dma_settings(void);
     void process_dma_interrupt(void);
-
+    bool flush16_async(int x1, int y1, int x2, int y2, const void* bitmap, bool flush_cache);
+    bool flush8_async(int x1, int y1, int x2, int y2, const void* bitmap, bool flush_cache);
+    bool flush16(int x1, int y1, int x2, int y2, const void* bitmap);
+    bool flush8(int x1, int y1, int x2, int y2, const void* bitmap);
    protected:
     inline void begin_transaction(void) __attribute__((always_inline)) {
         if (hwSPI) _pspi->beginTransaction(_spiSettings);
@@ -158,8 +157,8 @@ class lcd_spi_driver_t4 {
             spi_write16(data);
         }
     }
-    lcd_spi_driver_t4(uint32_t frequency, uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST = -1);
-    lcd_spi_driver_t4(uint32_t frequency, uint8_t CS, uint8_t RS, uint8_t RST = -1);
+    lcd_spi_driver_t4(uint8_t color_width, bool swap_color_bytes, uint32_t frequency, uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST = -1);
+    lcd_spi_driver_t4(uint8_t color_width, bool swap_color_bytes, uint32_t frequency, uint8_t CS, uint8_t RS, uint8_t RST = -1);
 
     virtual void initialize(void) = 0;
     virtual void write_address_window(int x1, int y1, int x2, int y2) = 0;
@@ -169,6 +168,16 @@ class lcd_spi_driver_t4 {
     void begin(void);
     void rotation(int value);
     void on_flush_complete_callback(lcd_spi_on_flush_complete_callback_t callback, void *state = nullptr);
-    bool flush_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache);
-    bool flush(int x1, int y1, int x2, int y2, const void *bitmap);
+    inline bool flush_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache) __attribute__((always_inline)) {
+        if(!_color_swap_bytes || _color_width!=2) {
+            return flush8_async(x1,y1,x2,y2,bitmap,flush_cache);
+        } 
+        return flush16_async(x1,y1,x2,y2,bitmap,flush_cache);
+    }
+    inline bool flush(int x1, int y1, int x2, int y2, const void *bitmap) __attribute__((always_inline)) {
+        if(!_color_swap_bytes || _color_width!=2) {
+            return flush8(x1,y1,x2,y2,bitmap);
+        } 
+        return flush16(x1,y1,x2,y2,bitmap);
+    }
 };
