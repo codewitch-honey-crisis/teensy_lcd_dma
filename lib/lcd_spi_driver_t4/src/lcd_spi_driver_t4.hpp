@@ -37,7 +37,7 @@ class lcd_spi_driver_t4 {
     uint8_t _pending_rx_count = 0;
     uint32_t _spi_tcr_current = 0;
     SPISettings _spiSettings;
-    volatile uint8_t _dma_state;         // DMA status
+    volatile uint8_t _dma_state;  // DMA status
     uint32_t _count_words;
     uint32_t _color_width;
     const uint16_t *_buffer;
@@ -78,10 +78,11 @@ class lcd_spi_driver_t4 {
     static void dma_interrupt2(void);
     bool init_dma_settings(void);
     void process_dma_interrupt(void);
-    bool flush16_async(int x1, int y1, int x2, int y2, const void* bitmap, bool flush_cache);
-    bool flush8_async(int x1, int y1, int x2, int y2, const void* bitmap, bool flush_cache);
-    bool flush16(int x1, int y1, int x2, int y2, const void* bitmap);
-    bool flush8(int x1, int y1, int x2, int y2, const void* bitmap);
+    bool flush16_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache);
+    bool flush8_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache);
+    bool flush16(int x1, int y1, int x2, int y2, const void *bitmap);
+    bool flush8(int x1, int y1, int x2, int y2, const void *bitmap);
+
    protected:
     inline void begin_transaction(void) __attribute__((always_inline)) {
         if (hwSPI) _pspi->beginTransaction(_spiSettings);
@@ -169,15 +170,15 @@ class lcd_spi_driver_t4 {
     void rotation(int value);
     void on_flush_complete_callback(lcd_spi_on_flush_complete_callback_t callback, void *state = nullptr);
     inline bool flush_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache) __attribute__((always_inline)) {
-        if(!_color_swap_bytes || _color_width!=2) {
-            return flush8_async(x1,y1,x2,y2,bitmap,flush_cache);
-        } 
-        return flush16_async(x1,y1,x2,y2,bitmap,flush_cache);
+        if (!_color_swap_bytes || _color_width != 2) {
+            return flush8_async(x1, y1, x2, y2, bitmap, flush_cache);
+        }
+        return flush16_async(x1, y1, x2, y2, bitmap, flush_cache);
     }
     inline bool flush(int x1, int y1, int x2, int y2, const void *bitmap) __attribute__((always_inline)) {
-        if(!_color_swap_bytes || _color_width!=2) {
-            return flush8(x1,y1,x2,y2,bitmap);
-        } 
-        return flush16(x1,y1,x2,y2,bitmap);
+        if (!_color_swap_bytes || _color_width != 2) {
+            return flush8(x1, y1, x2, y2, bitmap);
+        }
+        return flush16(x1, y1, x2, y2, bitmap);
     }
 };

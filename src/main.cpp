@@ -29,14 +29,13 @@ const byte CLK_PIN = 13;  // for SCK1: 27
 const byte BKL_PIN = 7;
 st7789_t4 lcd(st7789_t4_res_t::ST7789_240x320, CS_PIN, DC_PIN, RST_PIN, 7);
 // ST7789_t3 lcd( CS_PIN,DC_PIN,RST_PIN);
-static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT / 6) * 2),32*1024);
+static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT / 6) * 2), 32 * 1024);
 static uint8_t* lcd_transfer_buffer1 = nullptr;  //[lcd_transfer_buffer_size];
 static uint8_t* lcd_transfer_buffer2 = nullptr;  //[lcd_transfer_buffer_size];
 static uix::display lcd_display;
 static bool use_async_flush = true;
 static void uix_on_flush(const rect16& bounds, const void* bitmap, void* state) {
-    lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap,true);
-    
+    lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap, true);
 }
 static void lcd_on_flush_complete(void* state) {
     lcd_display.flush_complete();
@@ -524,10 +523,10 @@ void loop() {
         ts_ms = end_ms;
         // make sure we don't div by zero
         if (frames > 0) {
-            sprintf(fps_buf, "%s FPS: %d, avg ms: %0.2f",(use_async_flush)?"async":"sync",  frames,
+            sprintf(fps_buf, "%s FPS: %d, avg ms: %0.2f", (use_async_flush) ? "async" : "sync", frames,
                     (float)total_ms / (float)frames);
         } else {
-            sprintf(fps_buf, "%s FPS: < 1, total ms: %d", (use_async_flush)?"async":"sync",(int)total_ms);
+            sprintf(fps_buf, "%s FPS: < 1, total ms: %d", (use_async_flush) ? "async" : "sync", (int)total_ms);
         }
         // update the label (redraw is "automatic" (happens during lcd_display.update()))
         fps_label.text(fps_buf);
