@@ -70,7 +70,8 @@ void lcd_spi_driver_t4::process_dma_interrupt(void) {
     _pending_rx_count = 0;                                         // Make sure count is zero
     end_transaction();
     _dma_state &= ~(LCD_SPI_DMA_ACTIVE | LCD_SPI_DMA_FINISH);
-    _dmaActiveDisplay[_spi_num] = 0;  // We don't have a display active any more...
+    //_dmaActiveDisplay[_spi_num] = 0;  // We don't have a display active any more...
+    //maybe_update_tcr(_tcr_dc_assert | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_RXMSK );
 
 // Serial.println("After End transaction");
 #if defined(DEBUG_ASYNC_UPDATE)
@@ -99,7 +100,6 @@ bool lcd_spi_driver_t4::init_dma_settings(void) {
     _dma_data[_spi_num]._dmasettings[0].TCD->ATTR_DST = (_color_swap_bytes && _color_width == 2) ? 1 : 0;
     _dma_data[_spi_num]._dmasettings[0].replaceSettingsOnCompletion(_dma_data[_spi_num]._dmasettings[1]);
     _dma_data[_spi_num]._dmasettings[0].interruptAtCompletion();
-
     _dma_data[_spi_num]._dmatx.begin(true);
     _dma_data[_spi_num]._dmatx.triggerAtHardwareEvent(dmaTXevent);
     _dma_data[_spi_num]._dmatx = _dma_data[_spi_num]._dmasettings[0];
@@ -288,12 +288,14 @@ bool lcd_spi_driver_t4::flush16_async(int x1, int y1, int x2, int y2, const void
     _count_words = w * h;
     size_t bytes = _count_words * 2;
     if (flush_cache) {
-        arm_dcache_flush((void*)bitmap, bytes);
+        arm_dcache_flush((void*)_buffer, bytes);
     }
     if (!init_dma_settings()) {
         _dma_data[_spi_num]._dmasettings[0].sourceBuffer((const uint16_t*)_buffer, bytes);
     }
-    // Start off remove disable on completion from both...
+       
+
+    // Start off remove disable on completion...
     // it will be the ISR that disables it...
     _dma_data[_spi_num]._dmasettings[0].TCD->CSR &= ~(DMA_TCD_CSR_DREQ);
     _dma_data[_spi_num]._dmasettings[1].TCD->CSR &= ~(DMA_TCD_CSR_DREQ);
@@ -305,14 +307,14 @@ bool lcd_spi_driver_t4::flush16_async(int x1, int y1, int x2, int y2, const void
     maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_RXMSK /*| LPSPI_TCR_CONT*/);
     _pimxrt_spi->DER = LPSPI_DER_TDDE;
     _pimxrt_spi->SR = 0x3f00;  // clear out all of the other status...
+    _dma_data[_spi_num]._dmatx = _dma_data[_spi_num]._dmasettings[0];
     _dma_data[_spi_num]._dmatx.triggerAtHardwareEvent(_spi_hardware->tx_dma_channel);
 
-    _dma_data[_spi_num]._dmatx = _dma_data[_spi_num]._dmasettings[0];
-
+    _dmaActiveDisplay[_spi_num] = this;    
+    
     _dma_data[_spi_num]._dmatx.begin(false);
+    _dma_data[_spi_num]._dmatx.disableOnCompletion();
     _dma_data[_spi_num]._dmatx.enable();
-
-    _dmaActiveDisplay[_spi_num] = this;
     _dma_state &= ~LCD_SPI_DMA_CONT;
     _dma_state |= LCD_SPI_DMA_ACTIVE;
     return true;

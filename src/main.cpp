@@ -2,8 +2,9 @@
 #include <Arduino.h>
 
 #include "gfx.h"
+#include "ssd1351_t4.hpp"
 //#include "st7789_t4.hpp"
-#include "ili9341_t4.hpp"
+//#include "ili9341_t4.hpp"
 #include "uix.h"
 #define VGA_8X8_IMPLEMENTATION
 #include "assets/vga_8x8.h"
@@ -12,8 +13,8 @@ using namespace gfx;
 using namespace uix;
 
 // Screen dimension
-const uint16_t SCREEN_WIDTH = 240;
-const uint16_t SCREEN_HEIGHT = 320;
+const uint16_t SCREEN_WIDTH = 128;
+const uint16_t SCREEN_HEIGHT = 128;
 
 using px_t = pixel<channel_traits<channel_name::R, 5>, channel_traits<channel_name::G, 6>, channel_traits<channel_name::B, 5>>;
 
@@ -28,14 +29,16 @@ const byte RST_PIN = 9;
 const byte DIN_PIN = 11;  // for MOSI1: 26
 const byte CLK_PIN = 13;  // for SCK1: 27
 const byte BKL_PIN = 7;
+ssd1351_t4 lcd(CS_PIN,DC_PIN,RST_PIN);
 //st7789_t4 lcd(st7789_t4_res_t::ST7789_240x320, CS_PIN, DC_PIN, RST_PIN, 7);
-ili9341_t4 lcd(CS_PIN,DC_PIN,RST_PIN,BKL_PIN);
-static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT / 6) * 2), 32 * 1024);
+//ili9341_t4 lcd(CS_PIN,DC_PIN,RST_PIN,BKL_PIN);
+static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT / 8) * 2), 32 * 1024);
 static uint8_t* lcd_transfer_buffer1 = nullptr;  //[lcd_transfer_buffer_size];
 static uint8_t* lcd_transfer_buffer2 = nullptr;  //[lcd_transfer_buffer_size];
 static uix::display lcd_display;
 static const bool use_async_flush = true;
 static void uix_on_flush(const rect16& bounds, const void* bitmap, void* state) {
+    //Serial.printf("FLUSH: (%d, %d)-(%d, %d)\n",bounds.x1, bounds.y1, bounds.x2, bounds.y2);
     if(use_async_flush) {
         lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap, true);
     } else {
@@ -472,12 +475,16 @@ void setup() {
     lcd.on_flush_complete_callback(lcd_on_flush_complete, nullptr);
     lcd_display.on_flush_callback(uix_on_flush);
     main_screen.dimensions({SCREEN_WIDTH, SCREEN_HEIGHT});
-    const uint16_t extent = gfx::math::min_(main_screen.dimensions().width, main_screen.dimensions().height);
+    // initialize the font
+    fps_font.initialize();
+    
+    uint16_t extent = gfx::math::min_(main_screen.dimensions().width, main_screen.dimensions().height);
+    if(main_screen.dimensions().aspect_ratio()==1.f) {
+        extent -= fps_font.line_height();
+    }
     ana_clock.bounds(srect16(spoint16::zero(), ssize16(extent, extent)).center(main_screen.bounds()));
     // ana_clock.buffer_face(false);
     main_screen.register_control(ana_clock);
-    // initialize the font
-    fps_font.initialize();
     // set the label color
     fps_label.color(uix_color_t::blue);
     // set the bounds for the label (near the bottom)
@@ -492,7 +499,7 @@ void setup() {
     // set later after we compute the FPS
     fps_label.text("");
     // register the label with the screem
-    main_screen.register_control(fps_label);
+    //main_screen.register_control(fps_label);
     lcd_display.active_screen(main_screen);
 
 }

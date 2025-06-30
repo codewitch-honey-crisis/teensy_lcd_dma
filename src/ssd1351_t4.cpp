@@ -73,9 +73,9 @@ static const uint8_t PROGMEM initList[] = {
     SSD1351_CMD_DISPLAYON, 0,  // Main screen turn on
     0};                        // END OF COMMAND LIST
 
-ssd1351_t4::ssd1351_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST) : lcd_spi_driver_t4(2, true, 20 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
+ssd1351_t4::ssd1351_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST) : lcd_spi_driver_t4(2, true, 18 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
 }
-ssd1351_t4::ssd1351_t4(uint8_t CS, uint8_t RS, uint8_t RST) : lcd_spi_driver_t4(2, true, 20 * 1000 * 1000, CS, RS, RST) {
+ssd1351_t4::ssd1351_t4(uint8_t CS, uint8_t RS, uint8_t RST) : lcd_spi_driver_t4(2, true, 18 * 1000 * 1000, CS, RS, RST) {
 }
 
 void ssd1351_t4::initialize(void) {
@@ -96,12 +96,12 @@ void ssd1351_t4::initialize(void) {
     rotation(0);
 }
 void ssd1351_t4::write_address_window(int x1, int y1, int x2, int y2) {
-    write_command_last(SSD1351_CMD_SETCOLUMN);  // Column addr set
+    write_command(SSD1351_CMD_SETCOLUMN);  // Column addr set
     write_data(x1);                             // XSTART
-    write_data_last(x2);                        // XEND
-    write_command_last(SSD1351_CMD_SETROW);     // Row addr set
+    write_data(x2);                        // XEND
+    write_command(SSD1351_CMD_SETROW);     // Row addr set
     write_data(y1);                             // YSTART
-    write_data_last(y2);                        // YEND
+    write_data(y2);                        // YEND
     write_command_last(SSD1351_CMD_WRITERAM);
 }
 void ssd1351_t4::set_rotation(int value) {
