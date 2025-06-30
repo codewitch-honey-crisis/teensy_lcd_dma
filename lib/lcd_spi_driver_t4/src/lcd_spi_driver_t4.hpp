@@ -1,3 +1,5 @@
+//int32_t _tcr_dc_assert;
+//uint32_t _tcr_dc_not_assert;
 /***************************************************
   This is a library for the Adafruit 1.8" SPI display.
   This library works with the Adafruit 1.8" TFT Breakout w/SD card
@@ -42,6 +44,8 @@ class lcd_spi_driver_t4 {
     uint32_t _color_width;
     const uint16_t *_buffer;
     bool hwSPI;
+    int32_t _tcr_dc_assert;
+    uint32_t _tcr_dc_not_assert;
     uint8_t _cs, _rs, _rst, _sid, _sclk;
     uint32_t _freq;
     uint32_t _cspinmask;
@@ -85,16 +89,18 @@ class lcd_spi_driver_t4 {
 
    protected:
     inline void begin_transaction(void) __attribute__((always_inline)) {
-        if (hwSPI) _pspi->beginTransaction(_spiSettings);
+        
+        if (_pspi) _pspi->beginTransaction(_spiSettings);
+        
         if (_csport) DIRECT_WRITE_LOW(_csport, _cspinmask);
     }
     inline void end_transaction(void) __attribute__((always_inline)) {
         if (_csport) DIRECT_WRITE_HIGH(_csport, _cspinmask);
-        if (hwSPI) _pspi->endTransaction();
+        if (_pspi) _pspi->endTransaction();
     }
     inline void write_command(uint8_t cmd) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(LPSPI_TCR_PCS(0) | LPSPI_TCR_FRAMESZ(7));
+            maybe_update_tcr(_tcr_dc_assert | LPSPI_TCR_FRAMESZ(7));
             _pimxrt_spi->TDR = cmd;
             _pending_rx_count++;  //
             wait_fifo_not_full();
@@ -105,7 +111,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_command_last(uint8_t cmd) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(LPSPI_TCR_PCS(0) | LPSPI_TCR_FRAMESZ(7));
+            maybe_update_tcr(_tcr_dc_assert | LPSPI_TCR_FRAMESZ(7));
             _pimxrt_spi->TDR = cmd;
             _pending_rx_count++;  //
             wait_transmit_complete();
@@ -116,7 +122,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_data(uint8_t data) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7));
+            maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(7) | LPSPI_TCR_CONT);
             _pimxrt_spi->TDR = data;
             _pending_rx_count++;  //
             wait_fifo_not_full();
@@ -127,7 +133,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_data_last(uint8_t data) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7));
+            maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(7));
             _pimxrt_spi->TDR = data;
             _pending_rx_count++;  //
             wait_transmit_complete();
@@ -138,7 +144,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_data16(uint16_t data) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_CONT);
+            maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_CONT);
             _pimxrt_spi->TDR = data;
             _pending_rx_count++;  //
             wait_fifo_not_full();
@@ -149,7 +155,7 @@ class lcd_spi_driver_t4 {
     }
     inline void write_data16_last(uint16_t data) __attribute__((always_inline)) {
         if (hwSPI) {
-            maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(15));
+            maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(15));
             _pimxrt_spi->TDR = data;
             _pending_rx_count++;  //
             wait_transmit_complete();

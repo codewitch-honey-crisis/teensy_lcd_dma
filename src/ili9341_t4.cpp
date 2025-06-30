@@ -92,126 +92,32 @@ static const uint8_t initList[] = {
     3, 0xb1, 0x00, 0x10,                                   // FrameRate Control 119Hz
     0};
 
-ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2,true, 20 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
+ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2, true, 50 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
     _rotation = 0;
     _bkl = BKL;
 }
-ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2,true,20 * 1000 * 1000, CS, RS, RST) {
+ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2, true, 50 * 1000 * 1000, CS, RS, RST) {
     _rotation = 0;
     _bkl = BKL;
 }
 uint16_t ili9341_t4::width() const { return (_rotation & 1) ? 320 : 240; }
 uint16_t ili9341_t4::height() const { return (_rotation & 1) ? 240 : 320; }
 void ili9341_t4::initialize(void) {
-    write_command_last(0xEF);
-    write_data(0x03);
-    write_data(0x80);
-    write_data_last(0x02);
-
-    write_command_last(0xCF);
-    write_data(0x00);
-    write_data(0XC1);
-    write_data_last(0X30);
-
-    write_command_last(0xED);
-    write_data(0x64);
-    write_data(0x03);
-    write_data(0X12);
-    write_data_last(0X81);
-
-    write_command_last(0xE8);
-    write_data(0x85);
-    write_data(0x00);
-    write_data_last(0x78);
-
-    write_command_last(0xCB);
-    write_data(0x39);
-    write_data(0x2C);
-    write_data(0x00);
-    write_data(0x34);
-    write_data_last(0x02);
-
-    write_command_last(0xF7);
-    write_data_last(0x20);
-
-    write_command_last(0xEA);
-    write_data(0x00);
-    write_data_last(0x00);
-
-    write_command_last(ILI9341_PWCTR1);  // Power control
-    write_data_last(0x23);               // VRH[5:0]
-
-    write_command_last(ILI9341_PWCTR2);  // Power control
-    write_data_last(0x10);               // SAP[2:0];BT[3:0]
-
-    write_command_last(ILI9341_VMCTR1);  // VCM control
-    write_data(0x3e);
-    write_data_last(0x28);
-
-    write_command_last(ILI9341_VMCTR2);  // VCM control2
-    write_data_last(0x86);               //--
-
-    write_command_last(ILI9341_MADCTL);       // Memory Access Control
-    write_data_last(MADCTL_MX | MADCTL_BGR);  // Rotation 0 (portrait mode)
-
-    write_command_last(ILI9341_PIXFMT);
-    write_data_last(0x55);
-
-    write_command_last(ILI9341_FRMCTR1);
-    write_data(0x00);
-    write_data_last(0x13);  // 0x18 79Hz, 0x1B default 70Hz, 0x13 100Hz
-
-    write_command_last(ILI9341_DFUNCTR);  // Display Function Control
-    write_data(0x08);
-    write_data(0x82);
-    write_data_last(0x27);
-
-    write_command_last(0xF2);  // 3Gamma Function Disable
-    write_data_last(0x00);
-
-    write_command_last(ILI9341_GAMMASET);  // Gamma curve selected
-    write_data_last(0x01);
-
-    write_command_last(ILI9341_GMCTRP1);  // Set Gamma
-    write_data(0x0F);
-    write_data(0x31);
-    write_data(0x2B);
-    write_data(0x0C);
-    write_data(0x0E);
-    write_data(0x08);
-    write_data(0x4E);
-    write_data(0xF1);
-    write_data(0x37);
-    write_data(0x07);
-    write_data(0x10);
-    write_data(0x03);
-    write_data(0x0E);
-    write_data(0x09);
-    write_data_last(0x00);
-
-    write_command_last(ILI9341_GMCTRN1);  // Set Gamma
-    write_data(0x00);
-    write_data(0x0E);
-    write_data(0x14);
-    write_data(0x03);
-    write_data(0x11);
-    write_data(0x07);
-    write_data(0x31);
-    write_data(0xC1);
-    write_data(0x48);
-    write_data(0x08);
-    write_data(0x0F);
-    write_data(0x0C);
-    write_data(0x31);
-    write_data(0x36);
-    write_data_last(0x0F);
-
+    begin_transaction();
+    const uint8_t *addr = initList;
+    while (1) {
+        uint8_t count = *addr++;
+        if (count-- == 0) break;
+        write_command(*addr++);
+        while (count-- > 0) {
+            write_data(*addr++);
+        }
+    }
     write_command_last(ILI9341_SLPOUT);  // Exit Sleep
-
     end_transaction();
+
     delay(120);
     begin_transaction();
-
     write_command_last(ILI9341_DISPON);  // Display on
     end_transaction();
     rotation(0);
@@ -227,7 +133,7 @@ void ili9341_t4::write_address_window(int x1, int y1, int x2, int y2) {
     write_command(ILI9341_PASET);  // Row addr set
     write_data16(y1);
     write_data16(y2);
-    write_command(ILI9341_RAMWR);
+    write_command_last(ILI9341_RAMWR);
 }
 void ili9341_t4::set_rotation(int value) {
     _rotation = value & 3;

@@ -2,7 +2,8 @@
 #include <Arduino.h>
 
 #include "gfx.h"
-#include "st7789_t4.hpp"
+//#include "st7789_t4.hpp"
+#include "ili9341_t4.hpp"
 #include "uix.h"
 #define VGA_8X8_IMPLEMENTATION
 #include "assets/vga_8x8.h"
@@ -27,15 +28,19 @@ const byte RST_PIN = 9;
 const byte DIN_PIN = 11;  // for MOSI1: 26
 const byte CLK_PIN = 13;  // for SCK1: 27
 const byte BKL_PIN = 7;
-st7789_t4 lcd(st7789_t4_res_t::ST7789_240x320, CS_PIN, DC_PIN, RST_PIN, 7);
-// ST7789_t3 lcd( CS_PIN,DC_PIN,RST_PIN);
+//st7789_t4 lcd(st7789_t4_res_t::ST7789_240x320, CS_PIN, DC_PIN, RST_PIN, 7);
+ili9341_t4 lcd(CS_PIN,DC_PIN,RST_PIN,BKL_PIN);
 static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT / 6) * 2), 32 * 1024);
 static uint8_t* lcd_transfer_buffer1 = nullptr;  //[lcd_transfer_buffer_size];
 static uint8_t* lcd_transfer_buffer2 = nullptr;  //[lcd_transfer_buffer_size];
 static uix::display lcd_display;
-static bool use_async_flush = true;
+static const bool use_async_flush = true;
 static void uix_on_flush(const rect16& bounds, const void* bitmap, void* state) {
-    lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap, true);
+    if(use_async_flush) {
+        lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap, true);
+    } else {
+        lcd.flush(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap);
+    }
 }
 static void lcd_on_flush_complete(void* state) {
     lcd_display.flush_complete();
@@ -248,17 +253,12 @@ class vclock : public uix::canvas_control<ControlSurfaceType> {
    protected:
     virtual void on_paint(control_surface_type& destination, const uix::srect16& clip) override {
         if (m_buffer_face && m_face_dirty) {
-            typename control_surface_type::pixel_type bg;
-            if (use_async_flush)
-                bg = color_t::black;
-            else
-                bg = color_t::red;
             int16_t w = this->dimensions().width;
             int16_t h = this->dimensions().height;
             if (w > h) w = h;
             fb_t bmp = gfx::create_bitmap<typename fb_t::pixel_type, typename fb_t::palette_type>(gfx::size16(w, w));
             if (bmp.begin()) {
-                bmp.fill(bmp.bounds(), bg);
+                bmp.clear(bmp.bounds());
                 gfx::canvas cvs(gfx::size16(w, w));
                 if (gfx::gfx_result::success == cvs.initialize()) {
                     gfx::draw::canvas(bmp, cvs, gfx::point16::zero());
@@ -449,6 +449,7 @@ static screen_t main_screen;
 static ana_clock_t ana_clock;
 void setup() {
     Serial.begin(115200);
+    //delay(5000);
     Serial.println("Demo Startup...!");
 
     lcd_transfer_buffer1 = (uint8_t*)malloc(lcd_transfer_buffer_size);
@@ -480,7 +481,7 @@ void setup() {
     // set the label color
     fps_label.color(uix_color_t::blue);
     // set the bounds for the label (near the bottom)
-    fps_label.bounds({0, 0, 239, 8});
+    fps_label.bounds({0, 0, SCREEN_WIDTH - 1, (int16_t)(fps_font.line_height() - 1)});
     // want to align the text to the right
     fps_label.text_justify(uix_justify::top_right);
     // set the font to use (from above)
@@ -493,12 +494,14 @@ void setup() {
     // register the label with the screem
     main_screen.register_control(fps_label);
     lcd_display.active_screen(main_screen);
+
 }
 static int frames = 0;
 static uint32_t total_ms = 0;
 static uint32_t ts_ms = 0;
 static char fps_buf[64];
 static int seconds = 0;
+
 void loop() {
     uint32_t start_ms = millis();
 

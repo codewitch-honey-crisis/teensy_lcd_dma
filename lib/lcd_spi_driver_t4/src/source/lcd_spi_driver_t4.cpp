@@ -120,7 +120,7 @@ void lcd_spi_driver_t4::wait_transmit_complete(void) {
     while (_pending_rx_count) {
         if ((_pimxrt_spi->RSR & LPSPI_RSR_RXEMPTY) == 0) {
             tmp = _pimxrt_spi->RDR;  // Read any pending RX bytes in
-            _pending_rx_count--;     // decrement count of bytes still levt
+             _pending_rx_count--;  // decrement count of bytes still levt
         }
     }
     _pimxrt_spi->CR = LPSPI_CR_MEN | LPSPI_CR_RRF;  // Clear RX FIFO
@@ -245,25 +245,30 @@ void lcd_spi_driver_t4::begin(void) {
     }
 
     if (_pspi && _pspi->pinIsChipSelect(_rs)) {
-        _pspi->setCS(_rs);
+        uint8_t dc_cs_index = _pspi->setCS(_rs);
         _dcport = 0;
         _dcpinmask = 0;
+        dc_cs_index--;	// convert to 0 based
+		_tcr_dc_assert = LPSPI_TCR_PCS(dc_cs_index);
+    	_tcr_dc_not_assert = LPSPI_TCR_PCS(3);
     } else {
         // Serial.println("Error not DC is not valid hardware CS pin");
         _dcport = portOutputRegister(_rs);
         _dcpinmask = digitalPinToBitMask(_rs);
         pinMode(_rs, OUTPUT);
         DIRECT_WRITE_HIGH(_dcport, _dcpinmask);
+        _tcr_dc_assert = LPSPI_TCR_PCS(0);
+    	_tcr_dc_not_assert = LPSPI_TCR_PCS(1);
     }
-    maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7));
+    maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(7));
     if (_rst != 0xff) {
         pinMode(_rst, OUTPUT);
         digitalWrite(_rst, HIGH);
-        delay(100);
+        delay(5);//delay(100);
         digitalWrite(_rst, LOW);
-        delay(100);
+        delay(20);//delay(100);
         digitalWrite(_rst, HIGH);
-        delay(200);
+        delay(150);//delay(200);
     }
     initialize();
 }
@@ -297,7 +302,7 @@ bool lcd_spi_driver_t4::flush16_async(int x1, int y1, int x2, int y2, const void
     // Update TCR to 16 bit mode.
     _spi_fcr_save = _pimxrt_spi->FCR;  // remember the FCR
     _pimxrt_spi->FCR = 0;              // clear water marks...
-    maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_RXMSK /*| LPSPI_TCR_CONT*/);
+    maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_RXMSK /*| LPSPI_TCR_CONT*/);
     _pimxrt_spi->DER = LPSPI_DER_TDDE;
     _pimxrt_spi->SR = 0x3f00;  // clear out all of the other status...
     _dma_data[_spi_num]._dmatx.triggerAtHardwareEvent(_spi_hardware->tx_dma_channel);
@@ -339,7 +344,7 @@ bool lcd_spi_driver_t4::flush8_async(int x1, int y1, int x2, int y2, const void*
     _spi_fcr_save = _pimxrt_spi->FCR;  // remember the FCR
     _pimxrt_spi->FCR = 0;              // clear water marks...
     // Update TCR to 8 bit mode.
-    maybe_update_tcr(LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7) | LPSPI_TCR_RXMSK /*| LPSPI_TCR_CONT*/);
+    maybe_update_tcr(_tcr_dc_not_assert | LPSPI_TCR_PCS(1) | LPSPI_TCR_FRAMESZ(7) | LPSPI_TCR_RXMSK /*| LPSPI_TCR_CONT*/);
     _pimxrt_spi->DER = LPSPI_DER_TDDE;
     _pimxrt_spi->SR = 0x3f00;  // clear out all of the other status...
     _dma_data[_spi_num]._dmatx.triggerAtHardwareEvent(_spi_hardware->tx_dma_channel);
