@@ -35,11 +35,8 @@ static uint8_t* lcd_transfer_buffer2 = nullptr;  //[lcd_transfer_buffer_size];
 static uix::display lcd_display;
 static bool use_async_flush = true;
 static void uix_on_flush(const rect16& bounds, const void* bitmap, void* state) {
-    if (use_async_flush) {
-        lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap, true);
-    } else {
-        lcd.flush(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap);
-    }
+    lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap, true);
+    
 }
 static void lcd_on_flush_complete(void* state) {
     lcd_display.flush_complete();
@@ -501,7 +498,6 @@ void setup() {
 static int frames = 0;
 static uint32_t total_ms = 0;
 static uint32_t ts_ms = 0;
-static uint32_t ts2_ms = 0;
 static char fps_buf[64];
 static int seconds = 0;
 void loop() {
@@ -522,20 +518,6 @@ void loop() {
         ana_clock.time(ana_clock.time() + 1);
         // compute the statistics
         ++frames;
-        if (end_ms >= ts2_ms + 1000) {
-            ts2_ms = end_ms;
-            if (0 == (seconds % 5)) {
-                use_async_flush = !use_async_flush;
-                ana_clock.refresh();
-                if (!use_async_flush) {
-                    Serial.println("Using standard flush");
-                    main_screen.background_color(color_t::red);
-                } else {
-                    Serial.println("Using asynchronous flush");
-                    main_screen.background_color(color_t::black);
-                }
-            }
-        }
     }
     if (end_ms > ts_ms + 1000) {
         ++seconds;

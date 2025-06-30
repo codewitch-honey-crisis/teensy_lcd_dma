@@ -276,10 +276,10 @@ bool lcd_spi_driver_t4::flush_async(int x1, int y1, int x2, int y2, const void* 
     int w = x2-x1+1;
     int h = y2-y1+1;
     _count_words = w*h;
+    _dma_pixel_index = 0;
     if(flush_cache) {
         arm_dcache_flush((void*)_buffer,_count_words*2);
     }
-    _dma_pixel_index = 0;
     if(!init_dma_settings()) {
         size_t cb = _dma_buffer_size * 2;
         if (cb > _count_words * 2) {

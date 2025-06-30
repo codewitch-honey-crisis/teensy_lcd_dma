@@ -166,27 +166,9 @@ class lcd_spi_driver_t4 {
     virtual void set_rotation(int rotation) = 0;
 
    public:
-    /// @brief Initializes the driver
     void begin(void);
-    /// @brief Sets the rotation of the display
-    /// @param value The number of 90 degree increments from default 0-3
     void rotation(int value);
     void on_flush_complete_callback(lcd_spi_on_flush_complete_callback_t callback, void *state = nullptr);
-    /// @brief Flushes a bitmap asynchronously using DMA
-    /// @param x1 The starting x coordinate
-    /// @param y1 The starting y coordinate
-    /// @param x2 The ending x coordinate
-    /// @param y2 The ending y coordinate
-    /// @param bitmap The bitmap
-    /// @param flush_cache True to flush the memory cache, otherwise false. See remarks.
-    /// @return True if successful, false if a flush is already in progress
-    /// @remarks bitmap must be in DTCM memory or otherwise flush_cache must be true and the memory must be 32-bit aligned
-    bool flush_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache = false);
-    /// @brief Flushes a bitmap synchronously
-    /// @param x1 The starting x coordinate
-    /// @param y1 The starting y coordinate
-    /// @param x2 The ending x coordinate
-    /// @param y2 The ending y coordinate
-    /// @param bitmap The bitmap
+    bool flush_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache);
     bool flush(int x1, int y1, int x2, int y2, const void *bitmap);
 };
