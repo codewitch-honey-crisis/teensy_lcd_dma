@@ -129,7 +129,7 @@ void lcd_spi_driver_t4::wait_transmit_complete(void) {
 }
 
 
-#define TCR_MASK (LPSPI_TCR_PCS(3) | LPSPI_TCR_FRAMESZ(31) | LPSPI_TCR_CONT | LPSPI_TCR_RXMSK)
+#define TCR_MASK (LPSPI_TCR_PCS(3) | LPSPI_TCR_FRAMESZ(31) | LPSPI_TCR_CONT | LPSPI_TCR_RXMSK | LPSPI_TCR_LSBF)
 
 void lcd_spi_driver_t4::maybe_update_tcr(uint32_t requested_tcr_state) {
     if ((_spi_tcr_current & TCR_MASK) != requested_tcr_state) {

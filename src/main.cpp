@@ -29,13 +29,13 @@ const byte CLK_PIN = 13;  // for SCK1: 27
 const byte BKL_PIN = 7;
 st7789_t4 lcd(st7789_t4_res_t::ST7789_240x320, CS_PIN, DC_PIN, RST_PIN, 7);
 // ST7789_t3 lcd( CS_PIN,DC_PIN,RST_PIN);
-static constexpr const size_t lcd_transfer_buffer_size = (SCREEN_WIDTH * (SCREEN_HEIGHT / 6) * 2);
+static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT / 6) * 2),32*1024);
 static uint8_t* lcd_transfer_buffer1 = nullptr;  //[lcd_transfer_buffer_size];
 static uint8_t* lcd_transfer_buffer2 = nullptr;  //[lcd_transfer_buffer_size];
 static uix::display lcd_display;
 static bool use_async_flush = true;
 static void uix_on_flush(const rect16& bounds, const void* bitmap, void* state) {
-    lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap, true);
+    lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap,true);
     
 }
 static void lcd_on_flush_complete(void* state) {
@@ -88,7 +88,7 @@ class vclock : public uix::canvas_control<ControlSurfaceType> {
     fb_t m_face_buffer;
     // compute thetas for a rotation
     static void update_transform(float rotation, float& ctheta, float& stheta) {
-        float rads = gfx::math::deg2rad(rotation);  // rotation * (3.1415926536f / 180.0f);
+        float rads = gfx::math::deg2rad(rotation);
         ctheta = cosf(rads);
         stheta = sinf(rads);
     }
