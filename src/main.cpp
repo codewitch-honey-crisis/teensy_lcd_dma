@@ -1,3 +1,7 @@
+// BUG: When async flushes are on there will be a crash after a bit when the FPS label overlaps with the clock
+// tested with GFX instead of the label and no crash
+// suspect the bug is in uix::screen_ex.update_impl()
+#define USE_DTCM
 
 #include <Arduino.h>
 
@@ -15,12 +19,19 @@ using namespace uix;
 // Screen dimension
 const uint16_t SCREEN_WIDTH = 128;
 const uint16_t SCREEN_HEIGHT = 128;
+static const bool use_async_flush = true;
 
 using px_t = pixel<channel_traits<channel_name::R, 5>, channel_traits<channel_name::G, 6>, channel_traits<channel_name::B, 5>>;
 
 using screen_t = uix::screen<px_t>;
 using color_t = color<screen_t::pixel_type>;
 using uix_color_t = color<rgba_pixel<32>>;
+
+static const_buffer_stream fps_font_stream(vga_8x8, sizeof(vga_8x8));
+// construct the font with the stream we just made
+static win_font fps_font(fps_font_stream);
+
+static char fps_buf[128];
 
 // Pins
 const byte CS_PIN = 10;  // for CS1: 38
@@ -33,16 +44,31 @@ ssd1351_t4 lcd(CS_PIN,DC_PIN,RST_PIN);
 //st7789_t4 lcd(st7789_t4_res_t::ST7789_240x320, CS_PIN, DC_PIN, RST_PIN, 7);
 //ili9341_t4 lcd(CS_PIN,DC_PIN,RST_PIN,BKL_PIN);
 static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT / 8) * 2), 32 * 1024);
+#ifdef USE_DTCM
+static uint8_t lcd_transfer_buffer1[lcd_transfer_buffer_size];
+static uint8_t lcd_transfer_buffer2[lcd_transfer_buffer_size];
+#else
 static uint8_t* lcd_transfer_buffer1 = nullptr;  //[lcd_transfer_buffer_size];
 static uint8_t* lcd_transfer_buffer2 = nullptr;  //[lcd_transfer_buffer_size];
+#endif
 static uix::display lcd_display;
-static const bool use_async_flush = true;
-static void uix_on_flush(const rect16& bounds, const void* bitmap, void* state) {
-    //Serial.printf("FLUSH: (%d, %d)-(%d, %d)\n",bounds.x1, bounds.y1, bounds.x2, bounds.y2);
+
+static void uix_on_flush(const rect16& bounds, const void* bitmap_data, void* state) {
+    if(bounds.y2<17) {
+        Serial.printf("FLUSH: (%d, %d)-(%d, %d)\n",bounds.x1, bounds.y1, bounds.x2, bounds.y2);
+        // bitmap<screen_t::pixel_type> bmp(bounds.dimensions(),(void*)bitmap_data);
+        // text_info ti(fps_buf,fps_font);
+        // draw::text(bmp,((srect16)bounds.dimensions().bounds()).offset(0,0),ti,color_t::blue);
+    }
+#ifdef USE_DTCM
+    static const constexpr bool flush_cache = false;
+#else
+    static const constexpr bool flush_cache = true;
+#endif
     if(use_async_flush) {
-        lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap, true);
+        lcd.flush_async(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap_data, flush_cache);
     } else {
-        lcd.flush(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap);
+        lcd.flush(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap_data);
     }
 }
 static void lcd_on_flush_complete(void* state) {
@@ -441,9 +467,6 @@ using ana_clock_t = vclock<screen_t::control_surface_type>;
 ;
 using label_t = label<screen_t::control_surface_type>;
 
-static const_buffer_stream fps_font_stream(vga_8x8, sizeof(vga_8x8));
-// construct the font with the stream we just made
-static win_font fps_font(fps_font_stream);
 // the FPS label which displays statistics
 static label_t fps_label;
 
@@ -454,7 +477,7 @@ void setup() {
     Serial.begin(115200);
     //delay(5000);
     Serial.println("Demo Startup...!");
-
+#ifndef USE_DTCM
     lcd_transfer_buffer1 = (uint8_t*)malloc(lcd_transfer_buffer_size);
     if (lcd_transfer_buffer1 == nullptr) {
         Serial.println("Out of memory allocating transfer buffer. Choose a smaller size");
@@ -465,7 +488,7 @@ void setup() {
         Serial.println("Out of memory allocating transfer buffer. Choose a smaller size");
         while (1);
     }
-
+#endif
     SPI.begin();
     lcd.begin();
     lcd.rotation(0);
@@ -480,15 +503,15 @@ void setup() {
     
     uint16_t extent = gfx::math::min_(main_screen.dimensions().width, main_screen.dimensions().height);
     if(main_screen.dimensions().aspect_ratio()==1.f) {
-        extent -= fps_font.line_height();
+        extent -= 16;
     }
-    ana_clock.bounds(srect16(spoint16::zero(), ssize16(extent, extent)).center(main_screen.bounds()));
+    ana_clock.bounds(srect16(spoint16::zero(), ssize16(extent, extent)).center_horizontal(main_screen.bounds()).offset(0,8));
     // ana_clock.buffer_face(false);
     main_screen.register_control(ana_clock);
     // set the label color
     fps_label.color(uix_color_t::blue);
     // set the bounds for the label (near the bottom)
-    fps_label.bounds({0, 0, SCREEN_WIDTH - 1, (int16_t)(fps_font.line_height() - 1)});
+    fps_label.bounds(srect16(0, 0, SCREEN_WIDTH - 1, 16).offset(0,0/*ana_clock.bounds().y2+1)*/));
     // want to align the text to the right
     fps_label.text_justify(uix_justify::top_right);
     // set the font to use (from above)
@@ -499,14 +522,13 @@ void setup() {
     // set later after we compute the FPS
     fps_label.text("");
     // register the label with the screem
-    //main_screen.register_control(fps_label);
+    main_screen.register_control(fps_label);
     lcd_display.active_screen(main_screen);
 
 }
 static int frames = 0;
 static uint32_t total_ms = 0;
 static uint32_t ts_ms = 0;
-static char fps_buf[64];
 static int seconds = 0;
 
 void loop() {
@@ -533,13 +555,14 @@ void loop() {
         ts_ms = end_ms;
         // make sure we don't div by zero
         if (frames > 0) {
-            sprintf(fps_buf, "%s FPS: %d, avg ms: %0.2f", (use_async_flush) ? "async" : "sync", frames,
+            sprintf(fps_buf, "%s FPS: %d\navg ms: %0.2f", (use_async_flush) ? "async" : "sync", frames,
                     (float)total_ms / (float)frames);
         } else {
-            sprintf(fps_buf, "%s FPS: < 1, total ms: %d", (use_async_flush) ? "async" : "sync", (int)total_ms);
+            sprintf(fps_buf, "%s FPS: < 1\ntotal ms: %d", (use_async_flush) ? "async" : "sync", (int)total_ms);
         }
         // update the label (redraw is "automatic" (happens during lcd_display.update()))
         fps_label.text(fps_buf);
+        //main_screen.invalidate({0,0,SCREEN_WIDTH-1,16});
         Serial.println(fps_buf);
         total_ms = 0;
         frames = 0;
