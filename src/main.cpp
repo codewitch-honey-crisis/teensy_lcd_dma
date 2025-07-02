@@ -1,7 +1,7 @@
 // BUG: When async flushes are on there will be a crash after a bit when the FPS label overlaps with the clock
 // tested with GFX instead of the label and no crash
 // suspect the bug is in uix::screen_ex.update_impl()
-#define USE_DTCM
+//#define USE_DTCM
 
 #include <Arduino.h>
 
@@ -48,18 +48,12 @@ static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDT
 static uint8_t lcd_transfer_buffer1[lcd_transfer_buffer_size];
 static uint8_t lcd_transfer_buffer2[lcd_transfer_buffer_size];
 #else
-static uint8_t* lcd_transfer_buffer1 = nullptr;  //[lcd_transfer_buffer_size];
-static uint8_t* lcd_transfer_buffer2 = nullptr;  //[lcd_transfer_buffer_size];
+static uint8_t* lcd_transfer_buffer1 = nullptr;
+static uint8_t* lcd_transfer_buffer2 = nullptr;
 #endif
 static uix::display lcd_display;
 
-static void uix_on_flush(const rect16& bounds, const void* bitmap_data, void* state) {
-    if(bounds.y2<17) {
-        Serial.printf("FLUSH: (%d, %d)-(%d, %d)\n",bounds.x1, bounds.y1, bounds.x2, bounds.y2);
-        // bitmap<screen_t::pixel_type> bmp(bounds.dimensions(),(void*)bitmap_data);
-        // text_info ti(fps_buf,fps_font);
-        // draw::text(bmp,((srect16)bounds.dimensions().bounds()).offset(0,0),ti,color_t::blue);
-    }
+static void uix_on_flush(const rect16& bounds, void* bitmap_data, void* state) {
 #ifdef USE_DTCM
     static const constexpr bool flush_cache = false;
 #else
@@ -71,6 +65,9 @@ static void uix_on_flush(const rect16& bounds, const void* bitmap_data, void* st
         lcd.flush(bounds.x1, bounds.y1, bounds.x2, bounds.y2, bitmap_data);
     }
 }
+#ifdef FASTRUN
+    FASTRUN
+#endif
 static void lcd_on_flush_complete(void* state) {
     lcd_display.flush_complete();
 }
@@ -473,7 +470,13 @@ static label_t fps_label;
 static screen_t main_screen;
 
 static ana_clock_t ana_clock;
+uint8_t* alloc32(size_t size) {
+    uint8_t* mem = (uint8_t*)malloc(size+31);
+    if(!mem) return nullptr;
+    return (uint8_t*)(((unsigned long)(uintptr_t)mem+31) & ~((unsigned long) (uintptr_t)31));
+}
 void setup() {
+    // SCB_DisableCache();
     Serial.begin(115200);
     //delay(5000);
     Serial.println("Demo Startup...!");
@@ -505,8 +508,8 @@ void setup() {
     if(main_screen.dimensions().aspect_ratio()==1.f) {
         extent -= 16;
     }
-    ana_clock.bounds(srect16(spoint16::zero(), ssize16(extent, extent)).center_horizontal(main_screen.bounds()).offset(0,8));
-    // ana_clock.buffer_face(false);
+    ana_clock.bounds(srect16(spoint16::zero(), ssize16(extent, extent)).center_horizontal(main_screen.bounds()).offset(0,17));
+    //ana_clock.buffer_face(false);
     main_screen.register_control(ana_clock);
     // set the label color
     fps_label.color(uix_color_t::blue);
@@ -555,9 +558,11 @@ void loop() {
         ts_ms = end_ms;
         // make sure we don't div by zero
         if (frames > 0) {
+            //sprintf(fps_buf,"FPS: %d", frames);
             sprintf(fps_buf, "%s FPS: %d\navg ms: %0.2f", (use_async_flush) ? "async" : "sync", frames,
                     (float)total_ms / (float)frames);
         } else {
+            //strcpy(fps_buf,"FPS: <1");
             sprintf(fps_buf, "%s FPS: < 1\ntotal ms: %d", (use_async_flush) ? "async" : "sync", (int)total_ms);
         }
         // update the label (redraw is "automatic" (happens during lcd_display.update()))

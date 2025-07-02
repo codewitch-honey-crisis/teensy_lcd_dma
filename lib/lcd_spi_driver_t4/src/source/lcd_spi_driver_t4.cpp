@@ -77,14 +77,13 @@ void lcd_spi_driver_t4::process_dma_interrupt(void) {
 #if defined(DEBUG_ASYNC_UPDATE)
     Serial.println("$");
 #endif
-    
-    _dma_data[_spi_num]._dmatx.clearInterrupt();
-    _dma_data[_spi_num]._dmatx.clearComplete();
-    asm("dsb");
     if (_on_transfer_complete != nullptr) {
         _on_transfer_complete(_on_transfer_complete_state);
     }
 
+    _dma_data[_spi_num]._dmatx.clearInterrupt();
+    _dma_data[_spi_num]._dmatx.clearComplete();
+    asm("dsb");
 }
 
 bool lcd_spi_driver_t4::init_dma_settings(void) {
