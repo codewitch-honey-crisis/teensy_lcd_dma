@@ -43,7 +43,7 @@ const byte BKL_PIN = 7;
 ssd1351_t4 lcd(CS_PIN,DC_PIN,RST_PIN);
 //st7789_t4 lcd(st7789_t4_res_t::ST7789_240x320, CS_PIN, DC_PIN, RST_PIN, 7);
 //ili9341_t4 lcd(CS_PIN,DC_PIN,RST_PIN,BKL_PIN);
-static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT / 8) * 2), 32 * 1024);
+static constexpr const size_t lcd_transfer_buffer_size = math::min_((SCREEN_WIDTH * (SCREEN_HEIGHT/10) * 2), 32 * 1024);
 #ifdef USE_DTCM
 static uint8_t lcd_transfer_buffer1[lcd_transfer_buffer_size];
 static uint8_t lcd_transfer_buffer2[lcd_transfer_buffer_size];
