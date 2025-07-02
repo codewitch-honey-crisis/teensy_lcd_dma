@@ -1,8 +1,6 @@
 
 #include "lcd_spi_driver_t4.hpp"
 
-static volatile short _lcd_spi_dma_dummy_rx;
-
 lcd_spi_driver_t4* lcd_spi_driver_t4::_dmaActiveDisplay[3] = {0, 0, 0};
 lcd_spi_dma_data_t lcd_spi_driver_t4::_dma_data[3];  // one structure for each SPI bus
 
@@ -54,15 +52,12 @@ void lcd_spi_driver_t4::process_dma_interrupt(void) {
     // We are in single refresh mode or the user has called cancel so
     // Lets try to release the CS pin
     // Lets wait until FIFO is not empty
-    // Serial.printf("Before FSR wait: %x %x\n", _pimxrt_spi->FSR, _pimxrt_spi->SR);
     while (_pimxrt_spi->FSR & 0x1f);  // wait until this one is complete
 
-    // Serial.printf("Before SR busy wait: %x\n", _pimxrt_spi->SR);
     while (_pimxrt_spi->SR & LPSPI_SR_MBF);  // wait until this one is complete
 
     _dma_data[_spi_num]._dmatx.clearComplete();
-    // Serial.println("Restore FCR");
-    _pimxrt_spi->FCR = _spi_fcr_save;  // LPSPI_FCR_TXWATER(15); // _spi_fcr_save;	// restore the FSR status...
+    _pimxrt_spi->FCR = _spi_fcr_save;  // LPSPI_FCR_TXWATER(15); // restore the FSR status...
     _pimxrt_spi->DER = 0;              // DMA no longer doing TX (or RX)
 
     _pimxrt_spi->CR = LPSPI_CR_MEN | LPSPI_CR_RRF | LPSPI_CR_RTF;  // actually clear both...
@@ -70,13 +65,7 @@ void lcd_spi_driver_t4::process_dma_interrupt(void) {
     _pending_rx_count = 0;                                         // Make sure count is zero
     end_transaction();
     _dma_state &= ~(LCD_SPI_DMA_ACTIVE | LCD_SPI_DMA_FINISH);
-    //_dmaActiveDisplay[_spi_num] = 0;  // We don't have a display active any more...
-    //maybe_update_tcr(_tcr_dc_assert | LPSPI_TCR_FRAMESZ(15) | LPSPI_TCR_RXMSK );
-
-// Serial.println("After End transaction");
-#if defined(DEBUG_ASYNC_UPDATE)
-    Serial.println("$");
-#endif
+    
     if (_on_transfer_complete != nullptr) {
         _on_transfer_complete(_on_transfer_complete_state);
     }
