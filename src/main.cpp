@@ -567,7 +567,6 @@ void loop() {
         }
         // update the label (redraw is "automatic" (happens during lcd_display.update()))
         fps_label.text(fps_buf);
-        //main_screen.invalidate({0,0,SCREEN_WIDTH-1,16});
         Serial.println(fps_buf);
         total_ms = 0;
         frames = 0;
