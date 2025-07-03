@@ -543,7 +543,7 @@ void loop() {
 
     // update the display - causes the frame to be
     // flushed to the display.
-    lcd_display.update();
+    lcd_display.update(false);
     uint32_t end_ms = millis();
     total_ms += (end_ms - start_ms);
     // when we have a flush pending, that means htcw_uix returned
@@ -552,7 +552,7 @@ void loop() {
     // However, we don't want to count a pending as one of the frames
     // for calculating the FPS, since rendering was effectively skipped,
     // or rather, delayed - no paint actually happened, yet.
-    if (!lcd_display.flush_pending()) {
+    if (!lcd_display.flush_pending() && !lcd_display.dirty()) {
         // if we're not flushing see if we should switch between sync/async 
         // render modes:
         if(!lcd_display.flushing()) {
