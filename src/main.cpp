@@ -568,7 +568,7 @@ void loop() {
         // make sure we don't div by zero
         if (frames > 0) {
             //sprintf(fps_buf,"FPS: %d", frames);
-            sprintf(fps_buf, "%s FPS: %d\navg ms: %0.2f", (use_async_flush) ? "async" : "sync", frames,
+            sprintf(fps_buf, "%s FPS: %d\navg ms: %0.1f", (use_async_flush) ? "async" : "sync", frames,
                     (float)total_ms / (float)frames);
         } else {
             //strcpy(fps_buf,"FPS: <1");
