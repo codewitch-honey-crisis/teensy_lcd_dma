@@ -553,10 +553,12 @@ void loop() {
     // for calculating the FPS, since rendering was effectively skipped,
     // or rather, delayed - no paint actually happened, yet.
     if (!lcd_display.flush_pending()) {
+        // if we're not flushing see if we should switch between sync/async 
+        // render modes:
         if(!lcd_display.flushing()) {
             if(millis() > sync_async_ts+1000) {
                 sync_async_ts = millis();
-                if(0==(seconds%5)) {
+                if(0==(seconds%5)) { // every 5 seconds
                     use_async_flush = !use_async_flush;
                     if(!use_async_flush) {
                         fps_label.color(uix_color_t::red);
