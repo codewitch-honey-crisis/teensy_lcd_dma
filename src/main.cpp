@@ -258,18 +258,7 @@ class vclock : public uix::canvas_control<ControlSurfaceType> {
                m_face_dirty(true),
                m_buffer_face(true) {
     }
-    vclock(const vclock& rhs) {
-        *this = rhs;
-    }
-    vclock(vclock&& rhs) {
-        *this = rhs;
-    }
-    vclock& operator=(const vclock& rhs) {
-        *this = rhs;
-    }
-    vclock& operator=(vclock&& rhs) {
-        *this = rhs;
-    }
+    
     virtual ~vclock() {
         if (m_face_buffer.begin()) {
             free(m_face_buffer.begin());
