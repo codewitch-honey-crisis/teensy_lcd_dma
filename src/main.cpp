@@ -541,7 +541,7 @@ static uint32_t sync_async_ts = 0;
 void loop() {
     uint32_t start_ms = millis();
 
-    // update the display - causes the frame to be
+    // update the display - causes part of the frame to be
     // flushed to the display.
     lcd_display.update(false);
     uint32_t end_ms = millis();
