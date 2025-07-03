@@ -260,6 +260,7 @@ void lcd_spi_driver_t4::begin(void) {
         delay(150);//delay(200);
     }
     initialize();
+    rotation(0);
 }
 void lcd_spi_driver_t4::on_flush_complete_callback(lcd_spi_on_flush_complete_callback_t callback, void* state) {
     this->_on_transfer_complete = callback;
@@ -394,8 +395,11 @@ bool lcd_spi_driver_t4::flush8(int x1, int y1, int x2, int y2, const void* bitma
     }
     return true;
 }
+int lcd_spi_driver_t4::rotation() const {
+    return _rotation;
+}
 
 void lcd_spi_driver_t4::rotation(int value) {
-    _rotation = value;
+    _rotation = value&3;
     set_rotation(value);
 }

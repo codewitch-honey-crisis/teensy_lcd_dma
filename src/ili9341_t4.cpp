@@ -93,15 +93,13 @@ static const uint8_t initList[] = {
     0};
 
 ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2, true, 50 * 1000 * 1000, CS, RS, SID, SCLK, RST) {
-    _rotation = 0;
     _bkl = BKL;
 }
 ili9341_t4::ili9341_t4(uint8_t CS, uint8_t RS, uint8_t RST, uint8_t BKL) : lcd_spi_driver_t4(2, true, 50 * 1000 * 1000, CS, RS, RST) {
-    _rotation = 0;
     _bkl = BKL;
 }
-uint16_t ili9341_t4::width() const { return (_rotation & 1) ? 320 : 240; }
-uint16_t ili9341_t4::height() const { return (_rotation & 1) ? 240 : 320; }
+uint16_t ili9341_t4::width() const { return (rotation() & 1) ? 320 : 240; }
+uint16_t ili9341_t4::height() const { return (rotation() & 1) ? 240 : 320; }
 void ili9341_t4::initialize(void) {
     begin_transaction();
     const uint8_t *addr = initList;
@@ -136,10 +134,9 @@ void ili9341_t4::write_address_window(int x1, int y1, int x2, int y2) {
     write_command_last(ILI9341_RAMWR);
 }
 void ili9341_t4::set_rotation(int value) {
-    _rotation = value & 3;
     begin_transaction();
     write_command_last(ILI9341_MADCTL);
-    switch (_rotation) {
+    switch (value&3) {
         case 0:
             write_data_last(MADCTL_MX | MADCTL_BGR);
             break;

@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include "lcd_spi_driver_t4.hpp"
 class ili9341_t4 : public lcd_spi_driver_t4 {
-    uint8_t _rotation;
     uint8_t _bkl;    
 public:
     ili9341_t4(uint8_t CS, uint8_t RS, uint8_t SID, uint8_t SCLK, uint8_t RST , uint8_t BKL = -1);

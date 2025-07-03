@@ -173,6 +173,7 @@ class lcd_spi_driver_t4 {
 
    public:
     void begin(void);
+    int rotation() const;
     void rotation(int value);
     void on_flush_complete_callback(lcd_spi_on_flush_complete_callback_t callback, void *state = nullptr);
     inline bool flush_async(int x1, int y1, int x2, int y2, const void *bitmap, bool flush_cache) __attribute__((always_inline)) {

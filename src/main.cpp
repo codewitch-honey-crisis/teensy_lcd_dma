@@ -19,7 +19,7 @@ using namespace uix;
 // Screen dimension
 const uint16_t SCREEN_WIDTH = 128;
 const uint16_t SCREEN_HEIGHT = 128;
-static const bool use_async_flush = true;
+static bool use_async_flush = true;
 
 using px_t = pixel<channel_traits<channel_name::R, 5>, channel_traits<channel_name::G, 6>, channel_traits<channel_name::B, 5>>;
 
@@ -53,7 +53,7 @@ static uint8_t* lcd_transfer_buffer2 = nullptr;
 #endif
 static uix::display lcd_display;
 
-static void uix_on_flush(const rect16& bounds, void* bitmap_data, void* state) {
+static void uix_on_flush(const rect16& bounds, const void* bitmap_data, void* state) {
 #ifdef USE_DTCM
     static const constexpr bool flush_cache = false;
 #else
@@ -448,14 +448,18 @@ class vclock : public uix::canvas_control<ControlSurfaceType> {
         return m_buffer_face;
     }
     void buffer_face(bool value) {
-        if (value == false) {
-            if (m_buffer_face) {
-                if (m_face_buffer.begin()) {
-                    free(m_face_buffer.begin());
+        if(value!=m_buffer_face) {
+            if (value == false) {
+                if (m_buffer_face) {
+                    if (m_face_buffer.begin()) {
+                        free(m_face_buffer.begin());
+                    }
                 }
+            } else {
+                m_face_dirty = true;
             }
+            m_buffer_face = value;
         }
-        m_buffer_face = value;
     }
 };
 
@@ -533,7 +537,7 @@ static int frames = 0;
 static uint32_t total_ms = 0;
 static uint32_t ts_ms = 0;
 static int seconds = 0;
-
+static uint32_t sync_async_ts = 0;
 void loop() {
     uint32_t start_ms = millis();
 
@@ -549,9 +553,23 @@ void loop() {
     // for calculating the FPS, since rendering was effectively skipped,
     // or rather, delayed - no paint actually happened, yet.
     if (!lcd_display.flush_pending()) {
+        if(!lcd_display.flushing()) {
+            if(millis() > sync_async_ts+1000) {
+                sync_async_ts = millis();
+                if(0==(seconds%5)) {
+                    use_async_flush = !use_async_flush;
+                    if(!use_async_flush) {
+                        fps_label.color(uix_color_t::red);
+                    } else {
+                        fps_label.color(uix_color_t::blue);
+                    }
+                }
+            }
+        }
         ana_clock.time(ana_clock.time() + 1);
         // compute the statistics
         ++frames;
+
     }
     if (end_ms > ts_ms + 1000) {
         ++seconds;
